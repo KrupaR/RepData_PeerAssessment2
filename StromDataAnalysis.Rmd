@@ -1,0 +1,195 @@
+---
+title: "Strom Data Analysis"
+author: "Krupa"
+date: "Friday, October 23, 2015"
+output: html_document
+---
+---
+##Reproducible Research - Peer Assessment 2
+# 
+
+#####U.S. National Oceanic and Atmospheric Administration's (NOAA) storm database analysis on the health and economic impact by the severe weather events
+# 
+
+###SYNOPSIS
+
+Storm and other severe weather events can cause both public health and economic problems for communities and municipalities. Many severs events can results in fatalities, injuries and property damage. Preventing such outcomes to the extent possible is a key concern. The U.S. National Oceanic and Atmospheric Administration's (NOAA) storm database tracks characteristics of major storms and weather events in the United States, include when and where they occur, as well as estimates of any fatalities, injuries and property damage. 
+
+The project involves exploring and analysing NOAA's storm database. This report contains results on the health and economic impact by the severe weather events based on the data from NOAA database.
+
+###DATA PROCESSING
+
+##### Loading Data into local dataset
+
+```{r LoadData}
+
+# Download file from URL provided in the assignment
+
+setwd("D:/Data specialist course/Reproducible research/Peer Review/PA2")
+
+if (!file.exists("stormData.csv.bz2")) 
+{
+  url <-"https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2"
+  download.file(url,"stormData.csv.bz2")
+}
+
+# Unzip file
+if (!file.exists("stormData.csv")) 
+{ 
+    bunzip2("stormData.csv.bz2", "stormData.csv", remove = FALSE)
+}
+
+# load data into dataset stromData
+stormData <- read.csv("stormData.csv")
+dim(stormData)
+
+```
+#####Subsetting required data for analysis
+```{r}
+
+names(stormData)
+stormDataNew <- stormData[c("EVTYPE","FATALITIES","INJURIES","PROPDMG","PROPDMGEXP","CROPDMG","CROPDMGEXP")]
+str(stormDataNew)
+head(stormDataNew)
+
+```
+##### Exploring the Property Exponent Data (Factor)
+
+```{r}
+unique(stormDataNew$PROPDMGEXP)
+```
+
+######Rehash the Property Exponent Data
+
+```{r RehashPropertyData}
+
+stormDataNew$PROPEXP[stormDataNew$PROPDMGEXP == "K"] <- 1000
+stormDataNew$PROPEXP[stormDataNew$PROPDMGEXP == "M"] <- 1000000
+stormDataNew$PROPEXP[stormDataNew$PROPDMGEXP == ""] <- 1
+stormDataNew$PROPEXP[stormDataNew$PROPDMGEXP == "B"] <- 1000000000
+stormDataNew$PROPEXP[stormDataNew$PROPDMGEXP == "m"] <- 1000000
+stormDataNew$PROPEXP[stormDataNew$PROPDMGEXP == "0"] <- 1
+stormDataNew$PROPEXP[stormDataNew$PROPDMGEXP == "5"] <- 100000
+stormDataNew$PROPEXP[stormDataNew$PROPDMGEXP == "6"] <- 1000000
+stormDataNew$PROPEXP[stormDataNew$PROPDMGEXP == "4"] <- 10000
+stormDataNew$PROPEXP[stormDataNew$PROPDMGEXP == "2"] <- 100
+stormDataNew$PROPEXP[stormDataNew$PROPDMGEXP == "3"] <- 1000
+stormDataNew$PROPEXP[stormDataNew$PROPDMGEXP == "h"] <- 100
+stormDataNew$PROPEXP[stormDataNew$PROPDMGEXP == "7"] <- 10000000
+stormDataNew$PROPEXP[stormDataNew$PROPDMGEXP == "H"] <- 100
+stormDataNew$PROPEXP[stormDataNew$PROPDMGEXP == "1"] <- 10
+stormDataNew$PROPEXP[stormDataNew$PROPDMGEXP == "8"] <- 100000000
+
+# Invalid exponent values ("=", "-", "?") are given value zero
+stormDataNew$PROPEXP[stormDataNew$PROPDMGEXP == "+"] <- 0
+stormDataNew$PROPEXP[stormDataNew$PROPDMGEXP == "-"] <- 0
+stormDataNew$PROPEXP[stormDataNew$PROPDMGEXP == "?"] <- 0
+```
+
+##### Calculate Property Damage Value (PROPDMGVAL) 
+
+```{r CalulatePropertyDamageValue}
+stormDataNew$PROPDMGVAL <- stormDataNew$PROPDMG * stormDataNew$PROPEXP
+
+```
+
+##### Exploring the Crop Exponent Data (Factor)
+
+```{r}
+unique(stormDataNew$CROPDMGEXP)
+```
+
+######Rehash the Crop Exponent Data
+
+```{r RehashCropData}
+
+stormDataNew$CROPEXP[stormDataNew$CROPDMGEXP == "M"] <- 1000000
+stormDataNew$CROPEXP[stormDataNew$CROPDMGEXP == "K"] <- 1000
+stormDataNew$CROPEXP[stormDataNew$CROPDMGEXP == "m"] <- 1000000
+stormDataNew$CROPEXP[stormDataNew$CROPDMGEXP == "B"] <- 1000000000
+stormDataNew$CROPEXP[stormDataNew$CROPDMGEXP == "0"] <- 1
+stormDataNew$CROPEXP[stormDataNew$CROPDMGEXP == "k"] <- 1000
+stormDataNew$CROPEXP[stormDataNew$CROPDMGEXP == "2"] <- 100
+stormDataNew$CROPEXP[stormDataNew$CROPDMGEXP == ""] <- 1
+
+# Invalid exponent values ("=", "-", "?") are given value zero
+
+stormDataNew$CROPEXP[stormDataNew$CROPDMGEXP == "?"] <- 0
+
+```
+
+##### Calculate Crop Damage Value (CROPDMGVAL) 
+
+```{r CalCropDamageValue}
+stormDataNew$CROPDMGVAL <- stormDataNew$CROPDMG * stormDataNew$CROPEXP
+```
+
+####Aggregate the storm data based on event
+
+```{r AgrregateDataOnEvent}
+Fatal <- aggregate(FATALITIES ~ EVTYPE, data = stormDataNew, FUN = sum)
+Injury <- aggregate(INJURIES ~ EVTYPE, data = stormDataNew, FUN = sum)
+PropertyDamage <- aggregate(PROPDMGVAL ~ EVTYPE, data = stormDataNew, FUN = sum)
+CropDamage <- aggregate(CROPDMGVAL ~ EVTYPE, data = stormDataNew, FUN = sum)
+
+# Extract top 10 events with highest fatalities
+FatalTop10 <- Fatal[order(-Fatal$FATALITIES), ][1:10, ]
+
+# Extract top 10 event with highest injuries
+InjuryTop10 <- Injury[order(-Injury$INJURIES), ][1:10, ]
+
+# Extract top 10 events with highest Property Damage
+PropertyDamageTop10 <- PropertyDamage [order(-PropertyDamage$PROPDMGVAL), ][1:10, ]
+# Extract  top 10 events with highest Crop Damage
+CropDamageTop10 <- CropDamage [order(-CropDamage$CROPDMGVAL), ][1:10, ]
+
+```
+###RESULTS
+
+####Plot 1 : Bar graph of the top 10 events based on Fatalities and Injuries
+```{r Plot1}
+par(mfrow = c(1, 2), mar = c(12, 4, 3, 2), mgp = c(3, 1, 0), cex = 0.75)
+barplot( FatalTop10$FATALITIES, 
+        las = 3, 
+        names.arg = FatalTop10$EVTYPE, 
+        main = "Weather Events With The Top 10 Highest Fatalities", 
+        ylab = "Number of Fatalities", 
+        col = "pink")
+        
+barplot(InjuryTop10$INJURIES, 
+        las = 3, 
+        names.arg = InjuryTop10$EVTYPE, 
+        main = "Weather Events With the Top 10 Highest Injuries", 
+        ylab = "Number of Injuries", 
+        col = "pink")
+```
+
+####Plot 2: Bar graph of the top 10 events based on damage to Property and Crop
+
+```{r Plot2}
+par(mfrow = c(1, 2), mar = c(12, 4, 3, 2), mgp = c(3, 1, 0), cex = 0.8)
+barplot(PropertyDamageTop10$PROPDMGVAL/(10^9), 
+        las = 3, 
+        names.arg = PropertyDamageTop10$EVTYPE, 
+        main = "Top 10 Events with Greatest Property Damages", 
+        ylab = "Cost of Damages for property (in $ Billions)", 
+        col = "pink")
+
+barplot(CropDamageTop10$CROPDMGVAL/(10^9), 
+        las = 3, 
+        names.arg = CropDamageTop10$EVTYPE, 
+        main = "Top 10 Events With Greatest Crop Damages", 
+        ylab = "Cost of damages for crop (in $ Billions)", 
+        col = "pink")
+```
+
+###CONCLUSIONS
+
+#####Across United States, based on the data provided for storms between 1950 and Nov 2011
+
+* Tornado has caused the highest Fatalities and Injuries (As seen from the Plot1)
+
+* Flood, Drought, Tornado and Typhoon are the top 3 events which caused greatest property damages (As seen from the plot 2)
+
+* Drought, Flood, River Flood and Ice Storm are the top 3 events which caused greatest crop damages (As seen from the plot 2)
+
